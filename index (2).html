@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Among Us Game - Multiplayer</title>
+  <style>
+    :root {
+      --bg: #071021;
+      --bg-light: #0f1f35;
+      --accent: #ff7a2a;
+      --muted: #9fb0c8;
+      --text: #e0e0e0;
+      --success: #4cd964;
+      --danger: #ff453a;
+      --warning: #ffcc00;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg) 0%, #1a2a4a 100%);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+      grid-template-areas: "game role";
+    }
+
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; grid-template-areas: "game" "role"; gap: 15px; }
+      .panel { padding: 15px; }
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .panel { padding: 12px; border-radius: 12px; }
+      h1 { font-size: 20px; margin-bottom: 10px; }
+      h2 { font-size: 16px; margin-bottom: 8px; }
+    }
+
+    .game-panel { grid-area: game; }
+    .role-panel { grid-area: role; }
+
+    .panel {
+      background: rgba(15, 31, 53, 0.9);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 122, 42, 0.3);
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 { font-size: 28px; margin-bottom: 15px; color: var(--accent); }
+    h2 { font-size: 20px; margin-bottom: 12px; color: var(--muted); }
+
+    .setup-content {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .setup-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select, input, button {
+      padding: 12px 16px;
+      border: 2px solid rgba(255, 122, 42, 0.5);
+      background: rgba(255, 122, 42, 0.1);
+      color: var(--text);
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-height: 44px;
+    }
+
+    button {
+      background: linear-gradient(135deg, var(--accent), #ff6e00);
+      border: none;
+      color: white;
+      font-weight: bold;
+      min-width: 44px;
+    }
+
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255, 122, 42, 0.4); }
+    button:active { transform: translateY(0); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    select:focus, input:focus, button:focus { outline: none; border-color: var(--accent); }
+
+    @media (max-width: 768px) {
+      select, input, button { min-height: 48px; padding: 14px 16px; font-size: 15px; }
+      button { min-width: 48px; }
+    }
+
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .player-pill {
+      padding: 12px;
+      background: rgba(76, 217, 100, 0.2);
+      border: 2px solid rgba(76, 217, 100, 0.5);
+      border-radius: 15px;
+      text-align: center;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-pill:hover { background: rgba(76, 217, 100, 0.4); transform: scale(1.05); }
+    .player-pill.dead { opacity: 0.5; border-color: rgba(255, 69, 58, 0.5); background: rgba(255, 69, 58, 0.2); }
+
+    .role-display {
+      background: rgba(255, 122, 42, 0.15);
+      border: 2px solid rgba(255, 122, 42, 0.5);
+      padding: 15px;
+      border-radius: 15px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .role-badge {
+      display: inline-block;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, var(--accent), #ff6e00);
+      border-radius: 10px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    .role-badge.impostor {
+      background: linear-gradient(135deg, #ff453a, #ff0000);
+    }
+
+    .task-list, .hud-section {
+      background: rgba(255, 122, 42, 0.05);
+      border: 1px solid rgba(255, 122, 42, 0.2);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+    }
+
+    .task-item, .hud-item {
+      background: rgba(15, 31, 53, 0.6);
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 10px;
+      border-left: 4px solid var(--accent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .task-item.done {
+      border-left-color: var(--success);
+      background: rgba(76, 217, 100, 0.1);
+      opacity: 0.6;
+    }
+
+    .task-btn { padding: 6px 12px; font-size: 12px; }
+
+    .progress-bar-container {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #4cd964, #2fbf6b);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .kill-section {
+      background: rgba(255, 69, 58, 0.1);
+      border: 2px solid rgba(255, 69, 58, 0.3);
+      padding: 15px;
+      border-radius: 12px;
+    }
+
+    .kill-ui {
+      margin-bottom: 12px;
+    }
+
+    select.kill-target {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .cooldown-display {
+      background: rgba(255, 69, 58, 0.2);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+      color: var(--danger);
+      margin-top: 10px;
+    }
+
+    .discussion-content, .voting-content {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 15px;
+      border-radius: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+
+    .msg-item {
+      padding: 8px;
+      margin-bottom: 8px;
+      background: rgba(255, 122, 42, 0.1);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      font-size: 13px;
+    }
+
+    .voting-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .voting-options { grid-template-columns: 1fr; }
+    }
+
+    .vote-btn {
+      padding: 10px;
+      text-align: center;
+    }
+
+    .gameover-content {
+      text-align: center;
+      padding: 30px;
+    }
+
+    .gameover-result {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    .gameover-result.crew { color: var(--success); }
+    .gameover-result.impostor { color: var(--danger); }
+
+    .keyboard-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    .restart-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffffff1a, #ffffff0a);
+      border: 2px solid rgba(255,122,42,0.25);
+      color: var(--text);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      z-index: 60;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .restart-btn:active { transform: scale(0.98); }
+
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; grid-template-areas: "game" "role"; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="game-panel panel" id="gamePanel"></div>
+    <div class="role-panel panel" id="rolePanel"></div>
+  </div>
+  <button id="restartBtn" class="restart-btn" onclick="restartGame()" title="Spiel neustarten">🔄</button>
+
+  <script>
+    const TASKS = ['Electrical reparieren','Cafeteria reinigen','Müll rausbringen','Medbay Scan','Navigation','Comms','Reactor','Lüftung'];
+    const KILL_COOLDOWN = 25000;
+    const DISCUSSION_DURATION = 15000;
+    const ROOMS = ['Admin','Security','MedBay','Navigation','Cafeteria','Engine'];
+
+    let state = {
+      players: [],
+      round: 1,
+      phase: 'setup',
+      userId: 0,
+      voteResults: {},
+      discussion: [],
+      kills: [],
+      tasksDone: 0,
+      visibleKills: {},
+      gameStartTime: 0,
+      selectedRoom: ROOMS[0],
+      winner: null,
+      tasksGraceActive: false,
+      finalKillTimer: null,
+      userFinalKillTimer: null
+    };
+
+    function initGame() {
+      state.players = [
+        { id: 0, name: 'Spieler 1', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 1, name: 'Spieler 2', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 2, name: 'Spieler 3', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 3, name: 'Spieler 4', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 4, name: 'Spieler 5', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 5, name: 'Spieler 6', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 6, name: 'Spieler 7', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+        { id: 7, name: 'Spieler 8', role: null, alive: true, tasks: [], completed: 0, lastKill: 0, room: '' },
+      ];
+      state.phase = 'setup';
+      state.voteResults = {};
+      state.discussion = [];
+      state.kills = [];
+      state.visibleKills = {};
+      state.tasksDone = 0;
+      state.winner = null;
+      state.tasksGraceActive = false;
+      if(state.finalKillTimer) { clearTimeout(state.finalKillTimer); state.finalKillTimer = null; }
+      if(state.userFinalKillTimer) { clearTimeout(state.userFinalKillTimer); state.userFinalKillTimer = null; }
+      state.players.forEach(p => { p.alive = true; p.completed = 0; p.tasks = p.tasks || []; p.lastKill = 0; p.lastKillVictim = null; p.room = p.room || ROOMS[Math.floor(Math.random() * ROOMS.length)]; });
+      renderAll();
+    }
+
+    function startGame() {
+      if(state.phase !== 'setup') return;
+      state.players.forEach(p => { p.alive = true; p.completed = 0; p.lastKill = 0; p.lastKillVictim = null; });
+      state.voteResults = {};
+      state.kills = [];
+      state.visibleKills = {};
+      state.tasksGraceActive = false;
+      if(state.finalKillTimer) { clearTimeout(state.finalKillTimer); state.finalKillTimer = null; }
+      
+      const impostorCount = Math.ceil(state.players.length / 3);
+      const shuffled = [...state.players].sort(() => Math.random() - 0.5);
+      
+      state.players.forEach(p => p.role = 'crewmate');
+      shuffled.slice(0, impostorCount).forEach(p => {
+        const player = state.players.find(x => x.id === p.id);
+        player.role = 'impostor';
+      });
+
+      state.players.filter(p => p.role === 'crewmate').forEach(p => {
+        const numTasks = 2 + Math.floor(Math.random() * 2);
+        const taskSelection = TASKS.sort(() => Math.random() - 0.5).slice(0, numTasks);
+        p.tasks = taskSelection.map(name => ({ name, done: false, room: ROOMS[Math.floor(Math.random() * ROOMS.length)] }));
+      });
+
+      state.players.forEach(p => {
+        p.room = ROOMS[Math.floor(Math.random() * ROOMS.length)];
+        p.lastKill = 0;
+        p.lastKillVictim = null;
+      });
+      state.selectedRoom = state.players[state.userId].room;
+
+      state.phase = 'playing';
+      state.gameStartTime = Date.now();
+      state.discussion = [`🎮 Runde ${state.round} gestartet!`];
+      state.kills = [];
+      state.voteResults = {};
+      state.tasksDone = 0;
+      state.visibleKills = {};
+      
+      simulateGameLoop();
+      renderAll();
+    }
+
+    function randomSelect() {
+      state.userId = Math.floor(Math.random() * state.players.length);
+      renderAll();
+    }
+
+    function log(msg) {
+      state.discussion.push(msg);
+      if(state.discussion.length > 50) state.discussion.shift();
+    }
+
+    function discoverBody(victim) {
+      const report = state.kills.find(r => r.victim === victim.id && !r.discovered);
+      if(!report) return;
+      report.discovered = true;
+      state.visibleKills[victim.id] = true;
+      log(`💀 Die Leiche von ${victim.name} wurde in ${report.location} entdeckt!`);
+      if(state.phase === 'playing') {
+        state.phase = 'body-found';
+        log('🔔 Eine Leiche wurde gefunden! Discussion startet sofort!');
+        setTimeout(() => { state.phase = 'discussion'; renderAll(); }, 1200);
+      }
+    }
+
+    function reportBody(victimId) {
+      const you = state.players[state.userId];
+      if(!you || !you.alive) return;
+      const report = state.kills.find(r => r.victim === victimId && !r.discovered && r.location === you.room);
+      if(!report) {
+        log('⚠️ Keine unentdeckte Leiche in diesem Raum.');
+        return;
+      }
+      const victim = state.players.find(p => p.id === victimId);
+      report.discovered = true;
+      state.visibleKills[victimId] = true;
+      log(`👀 ${you.name} entdeckt die Leiche von ${victim.name} in ${report.location}!`);
+      if(state.phase === 'playing') {
+        state.phase = 'body-found';
+        setTimeout(() => { state.phase = 'discussion'; renderAll(); }, 800);
+      }
+      renderAll();
+    }
+
+    function tryKill(targetId) {
+      const you = state.players[state.userId];
+      if(!you || you.role !== 'impostor' || !you.alive) return;
+      if(Date.now() - you.lastKill < KILL_COOLDOWN) return;
+      const target = state.players[targetId];
+      if(!target || !target.alive) return;
+      if(you.room && target.room !== you.room) {
+        log('⚠️ Ziel ist nicht im gleichen Raum. Bewege dich in den selben Raum, um zu töten.');
+        return;
+      }
+      target.alive = false;
+      you.lastKill = Date.now();
+      you.lastKillVictim = targetId;
+      const report = { killer: you.id, victim: target.id, time: Date.now(), discovered: false, location: you.room || 'Unbekannt' };
+      state.kills.push(report);
+      log(`⚠️ ${you.name} hat einen Kill gemacht! (Diese Info ist GEHEIM!)`);
+      setTimeout(() => {
+        if(state.phase === 'playing' && !report.discovered) {
+          let finders = state.players.filter(p => p.alive && p.id !== you.id && p.room === report.location);
+          if(finders.length === 0) finders = state.players.filter(p => p.alive && p.id !== you.id);
+          if(finders.length > 0 && Math.random() < 0.7) {
+            const finder = finders[Math.floor(Math.random() * finders.length)];
+            log(`👀 ${finder.name} entdeckt die Leiche von ${target.name} in ${report.location}!`);
+            discoverBody(target);
+            report.discovered = true;
+          }
+        }
+      }, 5000 + Math.random() * 10000);
+      renderAll();
+    }
+
+    function simulateGameLoop() {
+      if(state.phase !== 'playing') return;
+      state.players.filter(p => p.id !== state.userId && p.role === 'crewmate' && p.alive).forEach(p => {
+        const pending = p.tasks.filter(t => !t.done);
+        if(pending.length === 0) return;
+        const here = pending.filter(t => t.room === p.room);
+        if(here.length > 0 && Math.random() < 0.6) {
+          here[0].done = true;
+          p.completed++;
+          log(`✓ ${p.name} erledigt ${here[0].name} in ${p.room}`);
+        } else if(Math.random() < 0.15) {
+          pending[0].done = true;
+          p.completed++;
+          log(`✓ ${p.name} erledigt ${pending[0].name}`);
+        }
+      });
+      state.players.filter(p => p.id !== state.userId && p.alive).forEach(p => {
+        if(Math.random() < 0.18) {
+          p.room = ROOMS[Math.floor(Math.random() * ROOMS.length)];
+        }
+      });
+      state.players.filter(p => p.id !== state.userId && p.role === 'impostor' && p.alive).forEach(p => {
+        if(Date.now() - p.lastKill >= KILL_COOLDOWN && Math.random() < 0.2) {
+          const targetsInRoom = state.players.filter(x => x.alive && x.id !== p.id && x.room === p.room);
+          if(targetsInRoom.length > 0) {
+            const target = targetsInRoom[Math.floor(Math.random() * targetsInRoom.length)];
+            target.alive = false;
+            p.lastKill = Date.now();
+            p.lastKillVictim = target.id;
+            const report = { killer: p.id, victim: target.id, time: Date.now(), discovered: false, location: p.room || 'Unbekannt' };
+            state.kills.push(report);
+            setTimeout(() => {
+              if(state.phase === 'playing' && !report.discovered) {
+                const finders = state.players.filter(x => x.alive);
+                if(finders.length > 0) {
+                  const finder = finders[Math.floor(Math.random() * finders.length)];
+                  log(`👀 ${finder.name} entdeckt die Leiche!`);
+                  state.visibleKills[target.id] = true;
+                  state.phase = 'discussion';
+                  log('🔔 LEICHE GEFUNDEN - Discussion!');
+                  report.discovered = true;
+                  renderAll();
+                }
+              }
+            }, 3000 + Math.random() * 8000);
+          }
+        }
+      });
+      checkEnd();
+      setTimeout(simulateGameLoop, 2000);
+    }
+
+    function checkEnd() {
+      const alive = state.players.filter(p => p.alive);
+      const aliveImpostors = alive.filter(p => p.role === 'impostor').length;
+      const aliveCrewmates = alive.filter(p => p.role === 'crewmate').length;
+      const crewTasks = alive.filter(p => p.role === 'crewmate').flatMap(p => p.tasks);
+      const allTasksDone = crewTasks.length > 0 && crewTasks.every(t => t.done);
+      const you = state.players[state.userId];
+      const youDone = you && you.role === 'crewmate' && you.tasks && you.tasks.length > 0 && you.tasks.every(t => t.done);
+
+      if(youDone && !allTasksDone && !state.userFinalKillTimer && state.phase === 'playing') {
+        state.userFinalKillTimer = setTimeout(() => {
+          state.userFinalKillTimer = null;
+          const impostors = state.players.filter(p => p.alive && p.role === 'impostor');
+          if(impostors.length === 0) return;
+          const killer = impostors[Math.floor(Math.random() * impostors.length)];
+          let targets = state.players.filter(p => p.alive && p.role === 'crewmate' && p.id !== state.userId);
+          if(targets.length === 0) targets = state.players.filter(p => p.alive && p.role === 'crewmate');
+          if(targets.length === 0) return;
+          const victim = targets[Math.floor(Math.random() * targets.length)];
+          victim.alive = false;
+          killer.lastKill = Date.now();
+          killer.lastKillVictim = victim.id;
+          const report = { killer: killer.id, victim: victim.id, time: Date.now(), discovered: false, location: killer.room || 'Unbekannt' };
+          state.kills.push(report);
+          log(`💥 Überraschungs-Kill: ${killer.name} tötet ${victim.name} in ${report.location}!`);
+          setTimeout(() => {
+            if(state.phase === 'playing' && !report.discovered) {
+              let finders = state.players.filter(p => p.alive && p.room === report.location && p.id !== killer.id);
+              if(finders.length === 0) finders = state.players.filter(p => p.alive && p.id !== killer.id);
+              if(finders.length > 0 && Math.random() < 0.9) {
+                const finder = finders[Math.floor(Math.random() * finders.length)];
+                log(`👀 ${finder.name} entdeckt die Leiche von ${victim.name} in ${report.location}!`);
+                discoverBody(victim);
+                report.discovered = true;
+              }
+            }
+          }, 2000 + Math.random() * 3000);
+          setTimeout(() => { checkEnd(); renderAll(); }, 4000);
+        }, 5000);
+      }
+
+      if(allTasksDone) {
+        if(state.tasksGraceActive) {
+          log('⌛ Finale Phase läuft...');
+        } else {
+          state.tasksGraceActive = true;
+          log('⚠️ Alle Tasks erledigt! Impostors haben noch eine letzte Chance...');
+          let delay = 5000 + Math.random() * 5000;
+          const youPlayer = state.players[state.userId];
+          if(youPlayer && youPlayer.role === 'crewmate') {
+            delay = 5000;
+          }
+          state.finalKillTimer = setTimeout(() => {
+            state.tasksGraceActive = false;
+            const impostors = state.players.filter(p => p.alive && p.role === 'impostor');
+            if(impostors.length === 0) {
+              log('✓ Keine Impostors mehr vorhanden — CREWMATE gewinnen!');
+              endGame('crew');
+              return;
+            }
+            const killer = impostors[Math.floor(Math.random() * impostors.length)];
+            const crewmates = state.players.filter(p => p.alive && p.role === 'crewmate');
+            if(crewmates.length === 0) {
+              log('✗ Keine Crewmates übrig — IMPOSTOR gewinnen!');
+              endGame('impostor');
+              return;
+            }
+            let targetsInRoom = crewmates.filter(t => t.room === killer.room);
+            let victim = null;
+            if(targetsInRoom.length > 0) victim = targetsInRoom[Math.floor(Math.random() * targetsInRoom.length)];
+            else victim = crewmates[Math.floor(Math.random() * crewmates.length)];
+            victim.alive = false;
+            killer.lastKill = Date.now();
+            killer.lastKillVictim = victim.id;
+            const report = { killer: killer.id, victim: victim.id, time: Date.now(), discovered: false, location: killer.room || 'Unbekannt' };
+            state.kills.push(report);
+            log(`💥 Finale Chance: ${killer.name} tötet ${victim.name} in ${report.location}!`);
+            setTimeout(() => {
+              if(state.phase === 'playing' && !report.discovered) {
+                let finders = state.players.filter(p => p.alive && p.room === report.location && p.id !== killer.id);
+                if(finders.length === 0) finders = state.players.filter(p => p.alive && p.id !== killer.id);
+                if(finders.length > 0 && Math.random() < 0.9) {
+                  const finder = finders[Math.floor(Math.random() * finders.length)];
+                  log(`👀 ${finder.name} entdeckt die Leiche von ${victim.name} in ${report.location}!`);
+                  discoverBody(victim);
+                  report.discovered = true;
+                }
+              }
+            }, 2000 + Math.random() * 4000);
+            setTimeout(() => { checkEnd(); renderAll(); }, 8000);
+          }, delay);
+        }
+      } else if(aliveImpostors.length === 0) {
+        log('✓ Alle Impostors eliminiert! CREWMATE GEWINNEN!');
+        endGame('crew');
+      } else if(aliveImpostors.length >= aliveCrewmates.length) {
+        log('✗ Impostors überwiegen Crewmates! IMPOSTOR GEWINNEN!');
+        endGame('impostor');
+      }
+    }
+
+    function callDiscussion() {
+      if(state.phase !== 'playing') return;
+      state.phase = 'discussion';
+      log('💬 Notfall-Discussion aufgerufen!');
+      renderAll();
+    }
+
+    function startVoting() {
+      if(state.phase !== 'discussion' && state.phase !== 'body-found') return;
+      state.phase = 'voting';
+      state.voteResults = {};
+      log('🗳️ Abstimmungsphase gestartet!');
+      renderAll();
+      simulateAIVotes();
+      setTimeout(() => { if(state.phase === 'voting') endVoting(); }, 10000);
+    }
+
+    function vote(targetId) {
+      const you = state.players[state.userId];
+      if(!you || !you.alive) return;
+      if(targetId === -1) {
+        state.voteResults[you.id] = -1;
+        log(`${you.name} stimmt für Skip`);
+      } else {
+        state.voteResults[you.id] = targetId;
+        log(`${you.name} stimmt für ${state.players[targetId].name}`);
+      }
+      const aliveCount = state.players.filter(p => p.alive).length;
+      if(Object.keys(state.voteResults).length >= aliveCount) {
+        endVoting();
+      }
+    }
+
+    function castVoteBy(playerId, targetId) {
+      if(state.voteResults[playerId] !== undefined) return;
+      state.voteResults[playerId] = targetId;
+      const player = state.players.find(p => p.id === playerId);
+      if(player) {
+        if(targetId === -1) log(`${player.name} stimmt für Skip (KI)`);
+        else log(`${player.name} stimmt für ${state.players[targetId].name} (KI)`);
+      }
+      const aliveCount = state.players.filter(p => p.alive).length;
+      if(Object.keys(state.voteResults).length >= aliveCount) {
+        endVoting();
+      }
+    }
+
+    function simulateAIVotes() {
+      state.players.filter(p => p.alive && p.id !== state.userId).forEach(ai => {
+        const delay = 1000 + Math.random() * 4000;
+        setTimeout(() => {
+          if(state.phase !== 'voting') return;
+          const sameRoom = state.players.filter(x => x.alive && x.id !== ai.id && x.room === ai.room);
+          let target = -1;
+          if(Math.random() < 0.15) {
+            target = -1;
+          } else if(sameRoom.length > 0 && Math.random() < 0.6) {
+            target = sameRoom[Math.floor(Math.random() * sameRoom.length)].id;
+          } else {
+            const candidates = state.players.filter(x => x.alive && x.id !== ai.id);
+            if(candidates.length > 0) target = candidates[Math.floor(Math.random() * candidates.length)].id;
+          }
+          castVoteBy(ai.id, target);
+          renderAll();
+        }, delay);
+      });
+    }
+
+    function teleportToRoom(room) {
+      const you = state.players[state.userId];
+      if(!you || !you.alive) return;
+      you.room = room;
+      state.selectedRoom = room;
+      log(`${you.name} teleportiert nach ${room}`);
+      renderAll();
+    }
+
+    function endVoting() {
+      if(state.phase !== 'voting') return;
+      if(Object.keys(state.voteResults).length === 0) {
+        log('❌ Niemand wurde eliminiert (Skip)');
+        state.phase = 'playing';
+        renderAll();
+        return;
+      }
+      const votes = {};
+      Object.values(state.voteResults).forEach(id => {
+        if(id === -1) {
+          votes['skip'] = (votes['skip'] || 0) + 1;
+        } else {
+          votes[id] = (votes[id] || 0) + 1;
+        }
+      });
+      const topVotes = Math.max(...Object.values(votes));
+      const candidates = Object.keys(votes).filter(k => votes[k] === topVotes);
+      if(candidates.includes('skip') && candidates.length > 1) {
+        log('❌ Skip gewonnen! Niemand wurde eliminiert');
+      } else if(candidates[0] === 'skip') {
+        log('❌ Skip gewonnen! Niemand wurde eliminiert');
+      } else {
+        const eliminated = candidates[0];
+        const player = state.players.find(p => p.id == eliminated);
+        if(player) {
+          player.alive = false;
+          log(`💀 ${player.name} wurde eliminiert! Rolle: ${player.role === 'impostor' ? '👿 IMPOSTOR' : '👤 CREWMATE'}`);
+        }
+      }
+      state.voteResults = {};
+      checkEnd();
+      state.phase = 'playing';
+      renderAll();
+    }
+
+    function endGame(winner) {
+      state.winner = winner;
+      if(state.finalKillTimer) { clearTimeout(state.finalKillTimer); state.finalKillTimer = null; }
+      if(state.userFinalKillTimer) { clearTimeout(state.userFinalKillTimer); state.userFinalKillTimer = null; }
+      state.phase = 'gameover';
+      state.round++;
+      renderAll();
+    }
+
+    function renderAll() {
+      const gamePanel = document.getElementById('gamePanel');
+      const rolePanel = document.getElementById('rolePanel');
+
+      if(state.phase === 'setup') {
+        gamePanel.innerHTML = `
+          <h1>⚫ Among Us Local</h1>
+          <div class="setup-content">
+            <div class="setup-row">
+              <label style="flex: 0 0 auto;">Spieler wählen:</label>
+              <select id="userSelect" onchange="state.userId = parseInt(this.value); renderAll();">
+                ${state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+              </select>
+              <button onclick="randomSelect()">🎲 Zufällig</button>
+            </div>
+            <button onclick="startGame()" style="padding: 15px; font-size: 16px; width: 100%; margin-top: 10px;">🚀 SPIEL STARTEN!</button>
+          </div>
+          <div class="players-grid">
+            ${state.players.map(p => `
+              <div class="player-pill" onclick="state.userId = ${p.id}; renderAll();" style="${p.id === state.userId ? 'border: 3px solid var(--accent); background: rgba(255,122,42,0.3);' : ''}">
+                ${p.name}
+              </div>
+            `).join('')}
+          </div>
+        `;
+        rolePanel.innerHTML = `<h2>📋 Spielvorbereitung</h2><p style="margin-bottom: 15px;">Wähle einen Spieler aus, den du steuern möchtest, und klicke dann "SPIEL STARTEN!"</p>`;
+        return;
+      }
+
+      const you = state.players[state.userId];
+      const alive = state.players.filter(p => p.alive).length;
+      const impostorsAlive = state.players.filter(p => p.alive && p.role === 'impostor').length;
+
+      if(state.phase === 'playing' || state.phase === 'body-found') {
+        const taskPercent = state.players.filter(p => p.role === 'crewmate').length > 0 
+          ? Math.round(state.players.filter(p => p.role === 'crewmate').flatMap(p => p.tasks).filter(t => t.done).length / state.players.filter(p => p.role === 'crewmate').flatMap(p => p.tasks).length * 100)
+          : 0;
+        gamePanel.innerHTML = `
+          <h1>🎮 Runde ${state.round}</h1>
+          <div style="background: rgba(76,217,100,0.1); border: 2px solid rgba(76,217,100,0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span>📋 Task-Fortschritt:</span><span style="color: var(--success); font-weight: bold;">${taskPercent}%</span></div>
+            <div class="progress-bar-container"><div class="progress-bar-fill" style="width: ${taskPercent}%"></div></div>
+          </div>
+          <h2>👥 Spieler</h2>
+          <div class="players-grid">
+            ${state.players.map(p => `<div class="player-pill ${!p.alive ? 'dead' : ''}" style="${p.id === state.userId ? 'border: 3px solid var(--accent);' : ''}"><div>${p.name}</div><div style="font-size: 11px; margin-top: 4px; color: var(--muted);">${!p.alive ? '💀 Tot' : p.role === 'impostor' ? '👿' : '👤'} • ${p.room || '—'}</div></div>`).join('')}
+          </div>
+          <h2 style="margin-top: 20px;">📡 Log</h2>
+          <div class="discussion-content">
+            ${state.discussion.map(m => `<div class="msg-item">${m}</div>`).join('')}
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+            <button onclick="callDiscussion()" style="padding: 10px;">🚨 Meeting</button>
+            <button onclick="state.phase='discussion'; renderAll();" style="padding: 10px;">💬 Diskussion</button>
+          </div>
+        `;
+      } else if(state.phase === 'discussion') {
+        gamePanel.innerHTML = `
+          <h1>💬 Diskussion</h1>
+          <h2>📡 Nachrichten</h2>
+          <div class="discussion-content">
+            ${state.discussion.map(m => `<div class="msg-item">${m}</div>`).join('')}
+          </div>
+          <button onclick="startVoting()" style="width: 100%; padding: 12px; margin-top: 15px; font-size: 16px;">🗳️ ZUR ABSTIMMUNG</button>
+        `;
+      } else if(state.phase === 'voting') {
+        gamePanel.innerHTML = `
+          <h1>🗳️ Abstimmung</h1>
+          <div class="voting-options">
+            ${state.players.filter(p => p.alive && p.id !== state.userId).map(p => `<button class="vote-btn" onclick="vote(${p.id}); renderAll();" style="padding: 12px; background: rgba(255,122,42,0.2); border: 2px solid rgba(255,122,42,0.5);">${p.name}</button>`).join('')}
+            <button class="vote-btn" onclick="vote(-1); renderAll();" style="padding: 12px; background: rgba(200,200,200,0.1); border: 2px solid rgba(200,200,200,0.3);">⊘ Skip</button>
+          </div>
+          <div style="margin-top: 12px; display: flex; gap: 12px;">
+            <div style="flex:1; padding: 12px; background: rgba(0,0,0,0.12); border-radius:8px;">
+              <strong style="display:block; margin-bottom:6px;">Abstimmungen</strong>
+              ${state.players.filter(p => p.alive).map(p => {
+                const v = state.voteResults[p.id];
+                const voteText = (v === undefined) ? 'Noch nicht' : (v === -1 ? 'Skip' : (state.players.find(x => x.id === v) ? state.players.find(x => x.id === v).name : 'Unbekannt'));
+                return `<div style="padding:6px 0; border-bottom: 1px solid rgba(255,122,42,0.04);">${p.name} → <strong style="color:var(--muted);">${voteText}</strong></div>`;
+              }).join('')}
+            </div>
+            <div style="width:220px; padding: 12px; background: rgba(255,122,42,0.06); border-radius:8px;">
+              <strong style="display:block; margin-bottom:6px;">Übersicht</strong>
+              <div style="font-size:13px;">Eingegangen: <strong>${Object.keys(state.voteResults).length}</strong> / <strong>${state.players.filter(p => p.alive).length}</strong></div>
+            </div>
+          </div>
+        `;
+      } else if(state.phase === 'gameover') {
+        const winner = state.winner || (state.players.filter(p => p.alive && p.role === 'impostor').length > 0 ? 'impostor' : 'crew');
+        gamePanel.innerHTML = `
+          <div class="gameover-content">
+            <h1 style="font-size: 36px;">🎉 SPIEL VORBEI!</h1>
+            <div class="gameover-result ${winner === 'crew' ? 'crew' : 'impostor'}" style="font-size: 28px;">
+              ${winner === 'crew' ? '✓ CREWMATE GEWINNEN!' : '✗ IMPOSTOR GEWINNEN!'}
+            </div>
+            <h2 style="margin-top: 20px; margin-bottom: 15px;">Endergebnis:</h2>
+            <div class="hud-section" style="margin-bottom: 20px;">
+              ${state.players.map(p => `<div class="hud-item" style="margin-bottom: 6px;"><span>${p.name}</span><span>${p.role === 'impostor' ? '👿 IMP' : '👤 CREW'} • ${p.alive ? '✓ Lebend' : '💀 Tot'}</span></div>`).join('')}
+            </div>
+            <button onclick="location.reload()" style="width: 100%; padding: 15px; margin-top: 20px;">🔄 NEUES SPIEL</button>
+          </div>
+        `;
+        rolePanel.innerHTML = `<h2>🏁 Endergebnis</h2><div class="hud-section"><div class="hud-item"><span>Deine Rolle:</span><span>${you ? (you.role === 'impostor' ? '👿 IMPOSTOR' : '👤 CREWMATE') : 'Unbekannt'}</span></div><div class="hud-item"><span>Status:</span><span>${you && you.alive ? '✓ Überlebt' : '💀 Eliminiert'}</span></div></div>`;
+      }
+
+      // Role Panel
+      if(you && you.role === 'crewmate' && state.phase === 'playing') {
+        const progressPct = you.tasks.length > 0 ? Math.round(you.completed / you.tasks.length * 100) : 0;
+        rolePanel.innerHTML = `
+          <h2>👤 CREWMATE</h2>
+          <h2 style="margin-top: 10px;">📍 Räume</h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            ${ROOMS.map(r => `<button onclick="you = state.players[state.userId]; you.room = '${r}'; state.selectedRoom = '${r}'; log(you.name + ' teleportiert nach ${r}'); renderAll();" style="padding: 8px; ${you.room===r ? 'box-shadow: 0 6px 12px rgba(0,0,0,0.4); border: 2px solid var(--accent);' : ''}">${r}</button>`).join('')}
+          </div>
+          <div style="margin-bottom: 12px; font-size: 13px; color: var(--muted);">Im Raum: <strong>${you.room}</strong></div>
+          <div style="background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+            <strong style="display: block; margin-bottom: 6px;">Im Raum:</strong>
+            ${state.players.filter(p => p.room === you.room).map(p => {
+              const tag = p.id === you.id ? ' (DU)' : '';
+              return `<div style="padding:6px 0; border-bottom: 1px solid rgba(255,122,42,0.04);">${p.name}${tag}</div>`;
+            }).join('')}
+            ${state.kills.filter(r => !r.discovered && r.location === you.room).map(r => {
+              const victim = state.players.find(p => p.id === r.victim);
+              if(!victim) return '';
+              return `<button style="margin-top:8px; padding:8px; width:100%; font-size:12px;" onclick="reportBody(${victim.id}); renderAll();">🔎 Leiche melden: ${victim.name}</button>`;
+            }).join('')}
+          </div>
+          <h2>📋 Tasks (${you.completed}/${you.tasks.length})</h2>
+          <div class="progress-bar-container"><div class="progress-bar-fill" style="width: ${progressPct}%"></div></div>
+          <div class="task-list">
+            ${you.tasks.map((t, i) => `
+              <div class="task-item ${t.done ? 'done' : ''}">
+                <div>${t.done ? '✓' : '◯'} ${t.name} (${t.room})</div>
+                ${!t.done ? `<button class="task-btn" onclick="(function(){ const me = state.players[state.userId]; if(me.room === '${t.room}'){ me.tasks[${i}].done = true; me.completed++; log('✓ Task erledigt'); renderAll(); checkEnd(); } else { log('⚠️ Gehe nach ${t.room}'); renderAll(); } })();">OK</button>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if(you && you.role === 'impostor' && state.phase === 'playing') {
+        const cooldown = Math.max(0, Math.ceil((KILL_COOLDOWN - (Date.now() - you.lastKill)) / 1000));
+        const targets = state.players.filter(p => p.alive && p.id !== state.userId && p.room === you.room);
+        rolePanel.innerHTML = `
+          <h2>👿 IMPOSTOR</h2>
+          <h2 style="margin-top: 10px;">📍 Räume</h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            ${ROOMS.map(r => `<button onclick="you = state.players[state.userId]; you.room = '${r}'; state.selectedRoom = '${r}'; log(you.name + ' teleportiert nach ${r}'); renderAll();" style="padding: 8px; ${you.room===r ? 'box-shadow: 0 6px 12px rgba(0,0,0,0.4); border: 2px solid var(--accent);' : ''}">${r}</button>`).join('')}
+          </div>
+          <div style="background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; margin-bottom: 12px;">
+            <strong style="display: block; margin-bottom: 6px;">Im Raum:</strong>
+            ${state.players.filter(p => p.room === you.room).map(p => {
+              const tag = p.id === you.id ? ' (DU)' : '';
+              const isImpostor = p.role === 'impostor' ? ' <span style="color: var(--danger);">[IMPOSTOR]</span>' : '';
+              return `<div style="padding:6px 0; border-bottom: 1px solid rgba(255,122,42,0.04);">${p.name}${tag}${isImpostor}</div>`;
+            }).join('')}
+          </div>
+          <div class="kill-section">
+            <h3>🔫 Kill</h3>
+            ${targets.length > 0 ? `
+              <select id="killTargetSelect">
+                ${targets.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+              </select>
+              <button onclick="tryKill(parseInt(document.getElementById('killTargetSelect').value)); renderAll();" style="width: 100%; margin-top: 8px;" ${cooldown > 0 ? 'disabled' : ''}>
+                ${cooldown > 0 ? `⏳ ${cooldown}s` : '🔴 TÖTEN'}
+              </button>
+            ` : `<p style="color: var(--muted);">Keine Ziele hier.</p>`}
+          </div>
+        `;
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if(e.code !== 'Space' || state.phase !== 'playing') return;
+      e.preventDefault();
+      const you = state.players[state.userId];
+      if(!you || !you.alive || you.role !== 'crewmate') return;
+      const nextTask = you.tasks.find(t => !t.done && t.room === you.room);
+      if(nextTask) {
+        nextTask.done = true;
+        you.completed++;
+        log(`✓ Task erledigt`);
+        renderAll();
+        checkEnd();
+      }
+    });
+
+    initGame();
+  </script>
+  <script>
+    function restartGame() {
+      log('🔄 Neustart');
+      initGame();
+    }
+  </script>
+</body>
+</html>
